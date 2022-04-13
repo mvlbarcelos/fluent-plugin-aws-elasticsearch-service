@@ -82,10 +82,12 @@ module Fluent::Plugin
           if opts[:assume_role_arn].nil?
             aws_container_credentials_relative_uri = opts[:ecs_container_credentials_relative_uri] || ENV["AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"]
             if aws_container_credentials_relative_uri.nil?
+              log.info("instance credentials")
               credentials = Aws::SharedCredentials.new({retries: 2}).credentials
               credentials ||= Aws::InstanceProfileCredentials.new.credentials
               credentials ||= Aws::ECSCredentials.new.credentials
             else
+              log.info("ECS credentials")
               credentials = Aws::ECSCredentials.new({
                 credential_path: aws_container_credentials_relative_uri
               }).credentials
@@ -93,12 +95,14 @@ module Fluent::Plugin
           else
 
             if opts[:assume_role_web_identity_token_file].nil?
+              log.info("STS credentials")
               credentials = sts_credential_provider({
                               role_arn: opts[:assume_role_arn],
                               role_session_name: opts[:assume_role_session_name],
                               region: sts_credentials_region(opts)
                             }).credentials
             else
+              log.info("STS WEB credentials")
               credentials = sts_web_identity_credential_provider({
                               role_arn: opts[:assume_role_arn],
                               web_identity_token_file: opts[:assume_role_web_identity_token_file],
@@ -108,6 +112,7 @@ module Fluent::Plugin
           end
         end
         raise "No valid AWS credentials found." unless credentials.set?
+        log.info(credentials)
         credentials
       end
       def calback.inspect
@@ -217,6 +222,7 @@ class FaradayMiddleware::AwsSigV4
       begin
         if credentials.is_a?(Proc)
           signer = lambda do
+            log.info("123")
             Aws::Sigv4::Signer.new(service: service_name, region: region, credentials: credentials.call)
           end
           def signer.sign_request(req)
@@ -224,6 +230,7 @@ class FaradayMiddleware::AwsSigV4
           end
           signer
         else
+          log.info("12345")
           Aws::Sigv4::Signer.new(service: service_name, region: region, credentials: credentials)
         end
       end
